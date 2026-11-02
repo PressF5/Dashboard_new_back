@@ -1,20 +1,24 @@
-CREATE TABLE publication_snapshot (
-  id BIGSERIAL PRIMARY KEY,
-  snapshot_date DATE NOT NULL UNIQUE,
-  source_import_id BIGINT REFERENCES import_batch(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+--liquibase formatted sql
+--changeset dashboard:002-publications-statistics
+create table publication_snapshot (
+    id bigserial primary key,
+    snapshot_date date not null unique,
+    source_import_id bigint references import_batch(id),
+    created_at timestamptz not null default now()
 );
-CREATE TABLE publication_msu_statistics (
-  id BIGSERIAL PRIMARY KEY,
-  snapshot_id BIGINT NOT NULL REFERENCES publication_snapshot(id) ON DELETE CASCADE,
-  msu_id BIGINT NOT NULL REFERENCES msu(id),
-  source_code VARCHAR(40),
-  social_publications BIGINT,
-  website_publications BIGINT,
-  parent_chat_publications BIGINT,
-  thematic_videos BIGINT,
-  publication_reach BIGINT,
-  organizations_percent NUMERIC(6,2),
-  CONSTRAINT uk_publication_snapshot_msu UNIQUE(snapshot_id, msu_id)
+
+create table publication_msu_statistics (
+    id bigserial primary key,
+    snapshot_id bigint not null references publication_snapshot(id) on delete cascade,
+    msu_id bigint not null references msu(id),
+    source_code varchar(40),
+    social_publications bigint,
+    website_publications bigint,
+    parent_chat_publications bigint,
+    thematic_videos bigint,
+    publication_reach bigint,
+    organizations_percent numeric(6,2),
+    constraint uk_publication_snapshot_msu unique(snapshot_id, msu_id)
 );
-CREATE INDEX idx_publication_snapshot_date ON publication_snapshot(snapshot_date DESC);
+
+create index idx_publication_snapshot_date on publication_snapshot(snapshot_date desc);

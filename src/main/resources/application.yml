@@ -20,4 +20,3 @@ app:
     password: ${ADMIN_PASSWORD:change-me}
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:3000}
-
