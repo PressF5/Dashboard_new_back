@@ -2,7 +2,6 @@
 package org.pressf5.dashboard.entity;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -29,7 +28,7 @@ import java.util.Map;
 )
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class SchoolStatistics {
 
     @Id
@@ -47,4 +46,10 @@ public class SchoolStatistics {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metrics", nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> metrics;
+
+    public SchoolStatistics(StatisticsSnapshot snapshot, EducationalOrganization organization, Map<String, Object> metrics) {
+        this.snapshot = snapshot;
+        this.organization = organization;
+        this.metrics = metrics;
+    }
 }

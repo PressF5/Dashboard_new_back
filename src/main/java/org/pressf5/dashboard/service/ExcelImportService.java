@@ -2,7 +2,6 @@ package org.pressf5.dashboard.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AllArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.pressf5.dashboard.entity.*;
 import org.pressf5.dashboard.repository.*;
@@ -21,7 +20,7 @@ import java.time.ZoneId;
 import java.util.*;
 
 @Service
-@AllArgsConstructor
+//@AllArgsConstructor
 @Transactional(readOnly = true)
 public class ExcelImportService {
     private final JdbcTemplate jdbc;
@@ -33,6 +32,32 @@ public class ExcelImportService {
     private final DashboardMetricRepository dashboardMetricRepository;
     private final StatisticsSnapshotRepository statisticsSnapshotRepository;
     private final ImportBatchRepository importBatchRepository;
+    private final SchoolStatisticsRepository schoolStatisticsRepository;
+    private final MsuStatisticsRepository msuStatisticsRepository;
+
+    public ExcelImportService(
+            JdbcTemplate jdbc,
+            ObjectMapper mapper,
+            Environment env,
+            DashboardMetricRepository dashboardMetricRepository,
+            MsuRepository msuRepository,
+            EducationalOrganizationRepository organizationRepository,
+            StatisticsSnapshotRepository statisticsSnapshotRepository,
+            ImportBatchRepository importBatchRepository,
+            SchoolStatisticsRepository schoolStatisticsRepository,
+            MsuStatisticsRepository msuStatisticsRepository
+    ) {
+        this.jdbc = jdbc;
+        this.mapper = mapper;
+        this.dashboardMetricRepository = dashboardMetricRepository;
+        this.msuRepository = msuRepository;
+        this.organizationRepository = organizationRepository;
+        this.statisticsSnapshotRepository = statisticsSnapshotRepository;
+        this.importBatchRepository = importBatchRepository;
+        this.schoolStatisticsRepository = schoolStatisticsRepository;
+        this.msuStatisticsRepository = msuStatisticsRepository;
+        this.zone = ZoneId.of(env.getProperty("app.time-zone", "Europe/Moscow"));
+    }
 
     @Transactional
     public Map<String, Object> importWorkbook(MultipartFile upload) {
@@ -50,12 +75,17 @@ public class ExcelImportService {
         try {
             temp = Files.createTempFile("school-dashboard-", lower.endsWith(".xls") ? ".xls" : ".xlsx");
             upload.transferTo(temp);
+
             try (InputStream in = Files.newInputStream(temp); Workbook workbook = WorkbookFactory.create(in)) {
                 Sheet general = workbook.getSheet("Общее");
-                if (general == null) throw new IllegalArgumentException("В книге отсутствует лист «Общее».");
+
+                if (general == null)
+                    throw new IllegalArgumentException("В книге отсутствует лист «Общее».");
                 Row headersRow = general.getRow(1);
+
                 if (headersRow == null || headersRow.getLastCellNum() < 2)
                     throw new IllegalArgumentException("Не найдена строка заголовков на листе «Общее».");
+
                 List<Metric> metrics = buildMetrics(headersRow, general);
                 upsertDefinitions(metrics);
 
@@ -73,40 +103,64 @@ public class ExcelImportService {
                 snapshot.setSourceImport(batch);
                 snapshot = statisticsSnapshotRepository.save(snapshot);
 
+                schoolStatisticsRepository.deleteAllBySnapshot_Id(snapshot.getId());
+                msuStatisticsRepository.deleteAllBySnapshot_Id(snapshot.getId());
 
-                jdbc.update("DELETE FROM school_statistics WHERE snapshot_id=?", snapshot.getId());
-                jdbc.update("DELETE FROM msu_statistics WHERE snapshot_id=?", snapshot.getId());
                 int schoolCount = 0;
                 Set<String> msuNames = new LinkedHashSet<>();
                 FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+
+                List<SchoolStatistics> schoolStatisticsList = new ArrayList<>();
+                List<MsuStatistics> msuStatisticsList = new ArrayList<>();
+
                 for (int s = 0; s < workbook.getNumberOfSheets(); s++) {
                     Sheet sheet = workbook.getSheetAt(s);
                     String msuName = sheet.getSheetName().trim();
+
                     if (msuName.equalsIgnoreCase("Общее") || msuName.equalsIgnoreCase("Подсветка") || sheet.getLastRowNum() < 2)
                         continue;
+
                     Msu msu = ensureMsu(msuName);
                     msuNames.add(msuName);
+
                     Row aggregate = sheet.getRow(2);
+
                     if (aggregate != null)
-                        jdbc.update("INSERT INTO msu_statistics(snapshot_id,msu_id,metrics) VALUES (?, ?, CAST(? AS jsonb)) ON CONFLICT(snapshot_id,msu_id) DO UPDATE SET metrics=EXCLUDED.metrics", snapshot.getId(), msu.getId(), json(readMetrics(aggregate, metrics, evaluator)));
+                        msuStatisticsList.add(new MsuStatistics(snapshot, msu, readMetrics(aggregate, metrics, evaluator)));
+
                     for (int ri = 3; ri <= sheet.getLastRowNum(); ri++) {
                         Row row = sheet.getRow(ri);
-                        if (row == null) continue;
+                        if (row == null)
+                            continue;
+
                         String orgName = cellText(row.getCell(0), evaluator).trim();
-                        if (orgName.isBlank() || orgName.equalsIgnoreCase("Школа")) continue;
+
+                        if (orgName.isBlank() || orgName.equalsIgnoreCase("Школа"))
+                            continue;
+
                         EducationalOrganization organization = ensureOrganization(msu, orgName);
                         Map<String, Object> values = readMetrics(row, metrics, evaluator);
-                        if (values.values().stream().allMatch(Objects::isNull)) continue;
-                        jdbc.update("INSERT INTO school_statistics(snapshot_id,organization_id,metrics) VALUES (?, ?, CAST(? AS jsonb)) ON CONFLICT(snapshot_id,organization_id) DO UPDATE SET metrics=EXCLUDED.metrics", snapshot.getId(), organization.getId(), json(values));
+
+                        if (values.values().stream().allMatch(Objects::isNull))
+                            continue;
+
+                        schoolStatisticsList.add(new SchoolStatistics(snapshot, organization, values));
                         schoolCount++;
                     }
                 }
-                if (msuNames.isEmpty()) throw new IllegalArgumentException("Не найдены листы МСУ в книге.");
+                if (msuNames.isEmpty())
+                    throw new IllegalArgumentException("Не найдены листы МСУ в книге.");
+
+                msuStatisticsRepository.saveAll(msuStatisticsList);
+                schoolStatisticsRepository.saveAll(schoolStatisticsList);
+
                 jdbc.update("UPDATE import_batch SET status='SUCCESS', message='Импорт завершён', schools_read=?, created_or_updated_msu=? WHERE id=?", schoolCount, msuNames.size(), batch.getId());
                 return Map.of("batchId", batch.getId(), "snapshotDate", date.toString(), "status", "SUCCESS", "schoolsRead", schoolCount, "msuCount", msuNames.size(), "message", "Импорт завершён; исходный файл будет удалён.");
             }
         } catch (Exception ex) {
-            if (ex instanceof IllegalArgumentException iae) throw iae;
+            if (ex instanceof IllegalArgumentException iae)
+                throw iae;
+
             throw new IllegalArgumentException("Не удалось обработать Excel: " + (ex.getMessage() == null ? "ошибка чтения файла" : ex.getMessage()), ex);
         } finally {
             if (temp != null) try {
