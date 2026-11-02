@@ -19,7 +19,7 @@ import java.util.*;
 @Service
 @AllArgsConstructor
 public class ExcelImportService {
-    private final ZoneId zone = ZoneId.of("Europe/Moscow");
+    private static final ZoneId ZONE = ZoneId.of("Europe/Moscow");
 
     private final MsuRepository msuRepository;
     private final EducationalOrganizationRepository organizationRepository;
@@ -40,7 +40,7 @@ public class ExcelImportService {
         if (!lower.endsWith(".xlsx") && !lower.endsWith(".xls"))
             throw new IllegalArgumentException("Поддерживаются файлы .xlsx и .xls.");
 
-        LocalDate date = LocalDate.now(zone);
+        LocalDate date = LocalDate.now(ZONE);
         Path temp = null;
         try {
             temp = Files.createTempFile("school-dashboard-", lower.endsWith(".xls") ? ".xls" : ".xlsx");
