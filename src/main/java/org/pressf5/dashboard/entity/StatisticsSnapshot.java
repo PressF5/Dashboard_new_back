@@ -15,7 +15,7 @@ import java.time.LocalDate;
 @Table(name = "statistics_snapshot")
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class StatisticsSnapshot {
 
     @Id

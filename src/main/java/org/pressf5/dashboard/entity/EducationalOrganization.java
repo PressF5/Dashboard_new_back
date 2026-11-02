@@ -22,7 +22,7 @@ import java.time.Instant;
 )
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class EducationalOrganization {
 
     @Id

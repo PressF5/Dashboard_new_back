@@ -14,7 +14,7 @@ import java.time.Instant;
 @Table(name = "msu")
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class Msu {
 
     @Id

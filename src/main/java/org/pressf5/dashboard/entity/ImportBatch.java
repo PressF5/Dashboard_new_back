@@ -16,7 +16,7 @@ import java.time.LocalDate;
 @Table(name = "import_batch")
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class ImportBatch {
 
     @Id

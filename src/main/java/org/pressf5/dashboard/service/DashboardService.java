@@ -1,83 +1,157 @@
 package org.pressf5.dashboard.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.jdbc.core.JdbcTemplate;
+import lombok.AllArgsConstructor;
+import org.pressf5.dashboard.entity.DashboardMetric;
+import org.pressf5.dashboard.entity.MsuStatistics;
+import org.pressf5.dashboard.entity.SchoolStatistics;
+import org.pressf5.dashboard.entity.StatisticsSnapshot;
+import org.pressf5.dashboard.repository.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
 
 @Service
+@AllArgsConstructor
+@Transactional(readOnly = true)
 public class DashboardService {
-    private final JdbcTemplate jdbc;
-    private final ObjectMapper mapper;
 
-    public DashboardService(JdbcTemplate jdbc, ObjectMapper mapper) {
-        this.jdbc = jdbc;
-        this.mapper = mapper;
-    }
+    private final StatisticsSnapshotRepository statisticsSnapshotRepository;
+    private final MsuRepository msuRepository;
+    private final EducationalOrganizationRepository organizationRepository;
+    private final SchoolStatisticsRepository schoolStatisticsRepository;
+    private final MsuStatisticsRepository msuStatisticsRepository;
+    private final DashboardMetricRepository dashboardMetricRepository;
+
 
     public List<Map<String, Object>> getDates() {
-        return jdbc.queryForList("SELECT snapshot_date::text AS date FROM statistics_snapshot ORDER BY snapshot_date DESC");
+        return statisticsSnapshotRepository.findAllByOrderBySnapshotDateDesc()
+                .stream()
+                .map(snapshot -> Map.<String, Object>of("date", snapshot.getSnapshotDate().toString()))
+                .toList();
     }
 
     public List<Map<String, Object>> getMsu() {
-        return jdbc.queryForList("SELECT id, name FROM msu ORDER BY name");
+        return msuRepository.findAllByOrderByNameAsc()
+                .stream()
+                .map(msu -> Map.<String, Object>of("id", msu.getId(), "name", msu.getName()))
+                .toList();
     }
 
     public List<Map<String, Object>> getOrganizations(Long msuId) {
-        if (msuId == null)
-            return jdbc.queryForList("SELECT id, msu_id AS \"msuId\", name FROM educational_organization ORDER BY name");
-        return jdbc.queryForList("SELECT id, msu_id AS \"msuId\", name FROM educational_organization WHERE msu_id = ? ORDER BY name", msuId);
+        var organizations = msuId == null ? organizationRepository.findAllByOrderByNameAsc() : organizationRepository.findAllByMsu_IdOrderByNameAsc(msuId);
+        return organizations.stream()
+                .map(organization -> Map.<String, Object>of(
+                        "id", organization.getId(),
+                        "msuId", organization.getMsu().getId(),
+                        "name", organization.getName()))
+                .toList();
     }
 
     public Map<String, Object> getStatistics(LocalDate requestedDate, Long msuId, Long organizationId) {
-        LocalDate date = requestedDate;
-        if (date == null) {
-            List<LocalDate> dates = jdbc.query("SELECT snapshot_date FROM statistics_snapshot ORDER BY snapshot_date DESC LIMIT 1", (rs, n) -> rs.getObject(1, LocalDate.class));
-            if (dates.isEmpty())
-                return Map.of("date", "", "scope", "empty", "metrics", List.of(), "message", "Нет загруженной статистики");
-            date = dates.get(0);
+        // Если дата не передана, используем последнюю загруженную
+        // Если статистики ещё нет, возвращаем пустой результат
+        StatisticsSnapshot snapshot;
+
+        if (requestedDate == null) {
+            Optional<StatisticsSnapshot> latestSnapshot = statisticsSnapshotRepository.findTopByOrderBySnapshotDateDesc();
+            if (latestSnapshot.isEmpty()) {
+                return Map.of(
+                        "date", "",
+                        "scope", "empty",
+                        "metrics", List.of(),
+                        "message", "Нет загруженной статистики"
+                );
+            }
+            snapshot = latestSnapshot.get();
+        } else {
+            Optional<StatisticsSnapshot> requestedSnapshot = statisticsSnapshotRepository.findBySnapshotDate(requestedDate);
+            if (requestedSnapshot.isEmpty()) {
+                return Map.of(
+                        "date", requestedDate.toString(),
+                        "scope", "empty",
+                        "metrics", List.of(),
+                        "message", "Нет данных за выбранную дату"
+                );
+            }
+            snapshot = requestedSnapshot.get();
         }
-        List<Long> ids = jdbc.query("SELECT id FROM statistics_snapshot WHERE snapshot_date = ?", (rs, n) -> rs.getLong(1), date);
-        if (ids.isEmpty())
-            return Map.of("date", date.toString(), "scope", "empty", "metrics", List.of(), "message", "Нет данных за выбранную дату");
-        long snapshotId = ids.get(0);
+
         String title;
-        String json;
         String scope;
+        Map<String, Object> values;
+
+        // Приоритет у выбранной ОО
         if (organizationId != null) {
-            List<Map<String, Object>> rows = jdbc.queryForList("SELECT eo.name, ss.metrics::text AS metrics FROM school_statistics ss JOIN educational_organization eo ON eo.id=ss.organization_id WHERE ss.snapshot_id=? AND eo.id=?", snapshotId, organizationId);
-            if (rows.isEmpty())
-                return Map.of("date", date.toString(), "scope", "organization", "metrics", List.of(), "message", "Нет данных для выбранной ОО за эту дату");
-            title = String.valueOf(rows.get(0).get("name"));
-            json = String.valueOf(rows.get(0).get("metrics"));
+            Optional<SchoolStatistics> statistics =
+                    schoolStatisticsRepository.findBySnapshot_IdAndOrganization_Id(snapshot.getId(), organizationId);
+            if (statistics.isEmpty()) {
+                return Map.of(
+                        "date", snapshot.getSnapshotDate().toString(),
+                        "scope", "organization",
+                        "metrics", List.of(),
+                        "message", "Нет данных для выбранной ОО за эту дату"
+                );
+            }
+
+            SchoolStatistics schoolStatistics = statistics.get();
+            title = schoolStatistics.getOrganization().getName();
+            values = schoolStatistics.getMetrics();
             scope = "organization";
         } else if (msuId != null) {
-            List<Map<String, Object>> rows = jdbc.queryForList("SELECT m.name, ms.metrics::text AS metrics FROM msu_statistics ms JOIN msu m ON m.id=ms.msu_id WHERE ms.snapshot_id=? AND m.id=?", snapshotId, msuId);
-            if (rows.isEmpty())
-                return Map.of("date", date.toString(), "scope", "msu", "metrics", List.of(), "message", "Нет данных для выбранного МСУ за эту дату");
-            title = String.valueOf(rows.get(0).get("name"));
-            json = String.valueOf(rows.get(0).get("metrics"));
-            scope = "msu";
-        } else
-            return Map.of("date", date.toString(), "scope", "region", "metrics", List.of(), "message", "Выберите МСУ или ОО для просмотра статистики");
-        try {
-            Map<String, Object> values = mapper.readValue(json, new TypeReference<>() {
-            });
-            List<Map<String, Object>> defs = jdbc.queryForList("SELECT metric_key AS key, label, metric_order AS \"order\", category_key AS \"categoryKey\", category_label AS \"categoryLabel\", unit, is_percentage AS percentage FROM dashboard_metric ORDER BY metric_order");
-            List<Map<String, Object>> metrics = new ArrayList<>();
-            for (Map<String, Object> def : defs) {
-                Map<String, Object> metric = new LinkedHashMap<>(def);
-                Object value = values.get(String.valueOf(def.get("key")));
-                metric.put("value", value);
-                metric.put("hasData", value != null);
-                metrics.add(metric);
+            Optional<MsuStatistics> statistics =
+                    msuStatisticsRepository.findBySnapshot_IdAndMsu_Id(snapshot.getId(), msuId);
+            if (statistics.isEmpty()) {
+                return Map.of(
+                        "date", snapshot.getSnapshotDate().toString(),
+                        "scope", "msu",
+                        "metrics", List.of(),
+                        "message", "Нет данных для выбранного МСУ за эту дату"
+                );
             }
-            return Map.of("date", date.toString(), "scope", scope, "title", title, "metrics", metrics);
-        } catch (Exception ex) {
-            throw new IllegalStateException("Не удалось прочитать показатели", ex);
+
+            MsuStatistics msuStatistics = statistics.get();
+            title = msuStatistics.getMsu().getName();
+            values = msuStatistics.getMetrics();
+            scope = "msu";
+        } else {
+            return Map.of(
+                    "date", snapshot.getSnapshotDate().toString(),
+                    "scope", "region",
+                    "metrics", List.of(),
+                    "message", "Выберите МСУ или ОО для просмотра статистики"
+            );
         }
+
+        // Получаем определения показателей из справочника
+        List<DashboardMetric> definitions = dashboardMetricRepository.findAllByOrderByMetricOrderAsc();
+        List<Map<String, Object>> metrics = new ArrayList<>();
+
+        for (DashboardMetric definition : definitions) {
+            Map<String, Object> metric = new LinkedHashMap<>();
+
+            String key = definition.getMetricKey();
+            Object value = values.get(key);
+
+            metric.put("key", key);
+            metric.put("label", definition.getLabel());
+            metric.put("order", definition.getMetricOrder());
+            metric.put("categoryKey", definition.getCategoryKey());
+            metric.put("categoryLabel", definition.getCategoryLabel());
+            metric.put("unit", definition.getUnit());
+            metric.put("percentage", definition.isPercentage());
+            metric.put("value", value);
+            metric.put("hasData", value != null);
+
+            metrics.add(metric);
+        }
+
+        return Map.of(
+                "date", snapshot.getSnapshotDate().toString(),
+                "scope", scope,
+                "title", title,
+                "metrics", metrics
+        );
     }
 }
