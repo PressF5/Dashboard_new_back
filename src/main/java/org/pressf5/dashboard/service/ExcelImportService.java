@@ -1,13 +1,10 @@
 package org.pressf5.dashboard.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.pressf5.dashboard.entity.*;
 import org.pressf5.dashboard.repository.*;
 import org.pressf5.dashboard.status.ImportStatus;
-import org.springframework.core.env.Environment;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,12 +17,9 @@ import java.time.ZoneId;
 import java.util.*;
 
 @Service
-//@AllArgsConstructor
-@Transactional(readOnly = true)
+@AllArgsConstructor
 public class ExcelImportService {
-    private final JdbcTemplate jdbc;
-    private final ObjectMapper mapper;
-    private final ZoneId zone;
+    private final ZoneId zone = ZoneId.of("Europe/Moscow");
 
     private final MsuRepository msuRepository;
     private final EducationalOrganizationRepository organizationRepository;
@@ -34,30 +28,6 @@ public class ExcelImportService {
     private final ImportBatchRepository importBatchRepository;
     private final SchoolStatisticsRepository schoolStatisticsRepository;
     private final MsuStatisticsRepository msuStatisticsRepository;
-
-    public ExcelImportService(
-            JdbcTemplate jdbc,
-            ObjectMapper mapper,
-            Environment env,
-            DashboardMetricRepository dashboardMetricRepository,
-            MsuRepository msuRepository,
-            EducationalOrganizationRepository organizationRepository,
-            StatisticsSnapshotRepository statisticsSnapshotRepository,
-            ImportBatchRepository importBatchRepository,
-            SchoolStatisticsRepository schoolStatisticsRepository,
-            MsuStatisticsRepository msuStatisticsRepository
-    ) {
-        this.jdbc = jdbc;
-        this.mapper = mapper;
-        this.dashboardMetricRepository = dashboardMetricRepository;
-        this.msuRepository = msuRepository;
-        this.organizationRepository = organizationRepository;
-        this.statisticsSnapshotRepository = statisticsSnapshotRepository;
-        this.importBatchRepository = importBatchRepository;
-        this.schoolStatisticsRepository = schoolStatisticsRepository;
-        this.msuStatisticsRepository = msuStatisticsRepository;
-        this.zone = ZoneId.of(env.getProperty("app.time-zone", "Europe/Moscow"));
-    }
 
     @Transactional
     public Map<String, Object> importWorkbook(MultipartFile upload) {
@@ -154,8 +124,20 @@ public class ExcelImportService {
                 msuStatisticsRepository.saveAll(msuStatisticsList);
                 schoolStatisticsRepository.saveAll(schoolStatisticsList);
 
-                jdbc.update("UPDATE import_batch SET status='SUCCESS', message='Импорт завершён', schools_read=?, created_or_updated_msu=? WHERE id=?", schoolCount, msuNames.size(), batch.getId());
-                return Map.of("batchId", batch.getId(), "snapshotDate", date.toString(), "status", "SUCCESS", "schoolsRead", schoolCount, "msuCount", msuNames.size(), "message", "Импорт завершён; исходный файл будет удалён.");
+                batch.setStatus(ImportStatus.SUCCESS);
+                batch.setMessage("Импорт завершён");
+                batch.setSchoolsRead(schoolCount);
+                batch.setCreatedOrUpdatedMsu(msuNames.size());
+
+                importBatchRepository.save(batch);
+
+                return Map.of(
+                        "batchId", batch.getId(),
+                        "snapshotDate", date.toString(),
+                        "status", "SUCCESS",
+                        "schoolsRead", schoolCount,
+                        "msuCount", msuNames.size(),
+                        "message", "Импорт завершён; исходный файл будет удалён.");
             }
         } catch (Exception ex) {
             if (ex instanceof IllegalArgumentException iae)
@@ -261,14 +243,6 @@ public class ExcelImportService {
                     organization.setName(name);
                     return organizationRepository.save(organization);
                 });
-    }
-
-    private String json(Map<String, Object> map) {
-        try {
-            return mapper.writeValueAsString(map);
-        } catch (JsonProcessingException ex) {
-            throw new IllegalStateException(ex);
-        }
     }
 
     private record Metric(String key, String label, int column, String category, String categoryLabel, String unit, boolean percentage) {
