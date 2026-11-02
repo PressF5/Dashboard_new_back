@@ -11,7 +11,6 @@ import org.pressf5.dashboard.repository.MsuRepository;
 import org.pressf5.dashboard.repository.PublicationMsuStatisticsRepository;
 import org.pressf5.dashboard.repository.PublicationSnapshotRepository;
 import org.pressf5.dashboard.status.ImportStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -84,7 +83,7 @@ public class PublicationImportService {
                                 newMsu.setName(name);
                                 return msuRepository.save(newMsu);
                             });
-                    Long msuId = msu.getId();
+
                     String code = text(row.getCell(0));
 
                     PublicationMsuStatistics statistics = new PublicationMsuStatistics();
