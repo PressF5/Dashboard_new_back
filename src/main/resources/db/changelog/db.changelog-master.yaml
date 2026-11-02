@@ -1,0 +1,7 @@
+databaseChangeLog:
+
+  - include:
+      file: db/changelog/001-initial-schema.sql
+
+  - include:
+      file: db/changelog/002-publications-statistics.sql

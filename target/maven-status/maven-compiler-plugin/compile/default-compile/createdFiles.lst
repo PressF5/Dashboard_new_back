@@ -1,0 +1,9 @@
+org\pressf5\dashboard\service\PublicationImportService.class
+org\pressf5\dashboard\service\DashboardService.class
+org\pressf5\dashboard\DashboardApplication.class
+org\pressf5\dashboard\service\ExcelImportService$Metric.class
+org\pressf5\dashboard\config\SecurityConfig.class
+org\pressf5\dashboard\service\ExcelImportService.class
+org\pressf5\dashboard\service\DashboardService$1.class
+org\pressf5\dashboard\api\ApiController.class
+org\pressf5\dashboard\api\ApiExceptionHandler.class
