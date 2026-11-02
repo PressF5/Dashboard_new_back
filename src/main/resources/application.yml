@@ -4,9 +4,9 @@ spring:
   application:
     name: dashboard-api
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/school_dashboard}
-    username: ${SPRING_DATASOURCE_USERNAME:dashboard}
-    password: ${SPRING_DATASOURCE_PASSWORD:dashboard}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dashboard}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:admin}
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
   servlet:
@@ -20,3 +20,4 @@ app:
     password: ${ADMIN_PASSWORD:change-me}
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:3000}
+
