@@ -17,12 +17,6 @@ import java.math.BigDecimal;
                         name = "uk_publication_snapshot_msu",
                         columnNames = {"snapshot_id", "msu_id"}
                 )
-        },
-        indexes = {
-                @Index(
-                        name = "idx_publication_snapshot_date",
-                        columnList = "snapshot_id"
-                )
         }
 )
 @Getter
