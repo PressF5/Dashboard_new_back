@@ -2,9 +2,8 @@ package org.pressf5.dashboard.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.pressf5.dashboard.dto.AdminRegistrationRequest;
-import org.pressf5.dashboard.dto.AdminRegistrationResponse;
-import org.pressf5.dashboard.dto.AvailableRoleResponse;
+import org.pressf5.dashboard.dto.*;
+import org.pressf5.dashboard.service.AdminAuthService;
 import org.pressf5.dashboard.service.AdminRoleService;
 import org.pressf5.dashboard.service.AdminUserService;
 import org.springframework.http.HttpStatus;
@@ -20,6 +19,15 @@ public class AuthController {
 
     private final AdminRoleService adminRoleService;
     private final AdminUserService adminUserService;
+    private final AdminAuthService adminAuthService;
+
+    /**
+     * Авторизация администратора.
+     */
+    @PostMapping("/login")
+    public AdminLoginResponse login(@Valid @RequestBody AdminLoginRequest request) {
+        return adminAuthService.login(request);
+    }
 
     /**
      * Получение списка свободных ролей для регистрации.
