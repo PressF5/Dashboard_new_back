@@ -41,7 +41,10 @@ public class AdminAuthService {
                 .orElseThrow(() -> new UnauthorizedException("Неверное имя пользователя или пароль"));
 
         String accessToken = jwtService.generateAccessToken(adminUser);
-        RefreshTokenService.CreatedRefreshToken refreshToken = refreshTokenService.create(adminUser);
+
+        RefreshTokenService.CreatedRefreshToken refreshToken =
+                refreshTokenService.create(adminUser);
+
         AdminLoginResponse response = new AdminLoginResponse(
                 accessToken,
                 "Bearer",
@@ -56,5 +59,8 @@ public class AdminAuthService {
         return new LoginResult(response, refreshToken);
     }
 
-    public record LoginResult(AdminLoginResponse response, RefreshTokenService.CreatedRefreshToken refreshToken) {}
+    public record LoginResult(
+            AdminLoginResponse response,
+            RefreshTokenService.CreatedRefreshToken refreshToken
+    ) {}
 }
