@@ -1,50 +1,75 @@
 package org.pressf5.dashboard.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 import java.util.List;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
-    @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
 
-    @Bean UserDetailsService userDetailsService(PasswordEncoder encoder,
-            @Value("${app.admin.username}") String username,
-            @Value("${app.admin.password}") String password) {
-        if (password == null || password.isBlank() || (password.equals("change-me") || password.equals("replace_this_value"))) {
-            throw new IllegalStateException("Set ADMIN_PASSWORD before starting the backend.");
-        }
-        return new InMemoryUserDetailsManager(User.withUsername(username)
-                .password(encoder.encode(password)).roles("ADMIN").build());
+    private final JwtAuthenticationConverter jwtAuthenticationConverter;
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http.csrf(csrf -> csrf.ignoringRequestMatchers("/api/admin/**"))
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http
+                .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
-                .authorizeHttpRequests(auth -> auth.requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll().requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/**").permitAll().anyRequest().permitAll())
-                .httpBasic(Customizer.withDefaults()).build();
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/admin/**")
+                        .hasAnyRole(
+                                "STATISTICS_ADMIN",
+                                "PUBLICATIONS_ADMIN",
+                                "TILDA_ADMIN",
+                                "DISTANCE_ADMIN")
+                        .requestMatchers("/api/**").permitAll()
+                        .anyRequest().permitAll()
+                )
+                .httpBasic(httpBasic -> httpBasic.disable())
+                .formLogin(formLogin -> formLogin.disable())
+                .logout(logout -> logout.disable())
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
+                )
+                .build();
     }
 
-    @Bean CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origin}") String origin) {
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origin}") String origin) {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(origin));
-        config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        // Необходимо для последующей работы с HttpOnly refresh cookie.
+        config.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
 }
