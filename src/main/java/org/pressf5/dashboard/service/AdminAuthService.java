@@ -1,3 +1,4 @@
+
 package org.pressf5.dashboard.service;
 
 import lombok.RequiredArgsConstructor;
@@ -21,23 +22,27 @@ public class AdminAuthService {
     private final AdminUserRepository adminUserRepository;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+    private final RefreshTokenService refreshTokenService;
 
-    @Transactional(readOnly = true)
-    public AdminLoginResponse login(AdminLoginRequest request) {
+    @Transactional
+    public LoginResult login(AdminLoginRequest request) {
+
+        String username = request.username().trim();
 
         try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.username().trim(), request.password()));
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(username, request.password()));
         } catch (AuthenticationException ex) {
             throw new UnauthorizedException("Неверное имя пользователя или пароль");
         }
 
         AdminUser adminUser = adminUserRepository
-                .findByUsernameIgnoreCase(request.username().trim())
+                .findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new UnauthorizedException("Неверное имя пользователя или пароль"));
 
         String accessToken = jwtService.generateAccessToken(adminUser);
-
-        return new AdminLoginResponse(
+        RefreshTokenService.CreatedRefreshToken refreshToken = refreshTokenService.create(adminUser);
+        AdminLoginResponse response = new AdminLoginResponse(
                 accessToken,
                 "Bearer",
                 jwtProperties.getAccessTokenTtl().toSeconds(),
@@ -47,5 +52,9 @@ public class AdminAuthService {
                 adminUser.getRole().getCode(),
                 adminUser.getRole().getName()
         );
+
+        return new LoginResult(response, refreshToken);
     }
+
+    public record LoginResult(AdminLoginResponse response, RefreshTokenService.CreatedRefreshToken refreshToken) {}
 }

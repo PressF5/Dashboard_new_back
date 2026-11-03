@@ -23,5 +23,8 @@ app:
     access-token-ttl: 15m
     refresh-token-ttl: 30d
     secret: ${JWT_SECRET}
+  cookie:
+    secure: ${COOKIE_SECURE:false}
+    same-site: ${COOKIE_SAME_SITE:Lax}
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:3000}
