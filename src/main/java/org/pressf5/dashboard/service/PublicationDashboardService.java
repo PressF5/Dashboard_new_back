@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -56,17 +57,20 @@ public class PublicationDashboardService {
                 : publicationMsuStatisticsRepository.findAllBySnapshot_IdAndMsu_Id(snapshot.getId(), msuId);
 
         List<Map<String, Object>> metrics = statistics.stream()
-                .map(item -> Map.<String, Object>of(
-                        "msuId", item.getMsu().getId(),
-                        "sourceCode", item.getSourceCode() == null ? "" : item.getSourceCode(),
-                        "sourceName", item.getMsu().getName(),
-                        "socialPublications", item.getSocialPublications() == null ? 0 : item.getSocialPublications(),
-                        "websitePublications", item.getWebsitePublications() == null ? 0 : item.getWebsitePublications(),
-                        "parentChatPublications", item.getParentChatPublications() == null ? 0 : item.getParentChatPublications(),
-                        "thematicVideos", item.getThematicVideos() == null ? 0 : item.getThematicVideos(),
-                        "publicationReach", item.getPublicationReach() == null ? 0 : item.getPublicationReach(),
-                        "organizationsPercent", item.getOrganizationsPercent() == null ? 0 : item.getOrganizationsPercent()
-                ))
+                .map(item -> {
+                    Map<String, Object> metric = new HashMap<>();
+                    metric.put("msuId", item.getMsu().getId());
+                    metric.put("name", item.getMsu().getName());
+                    metric.put("sourceCode", item.getSourceCode());
+                    metric.put("socialPublications", item.getSocialPublications());
+                    metric.put("websitePublications", item.getWebsitePublications());
+                    metric.put("parentChatPublications", item.getParentChatPublications());
+                    metric.put("thematicVideos", item.getThematicVideos());
+                    metric.put("publicationReach", item.getPublicationReach());
+                    metric.put("organizationsPercent", item.getOrganizationsPercent());
+
+                    return metric;
+                })
                 .toList();
 
         return Map.of(

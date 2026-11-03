@@ -76,6 +76,10 @@ public class ExcelImportService {
                 schoolStatisticsRepository.deleteAllBySnapshot_Id(snapshot.getId());
                 msuStatisticsRepository.deleteAllBySnapshot_Id(snapshot.getId());
 
+                // Принудительно выполняем DELETE до последующей вставки новых записей.
+                schoolStatisticsRepository.flush();
+                msuStatisticsRepository.flush();
+
                 int schoolCount = 0;
                 Set<String> msuNames = new LinkedHashSet<>();
                 FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
@@ -206,13 +210,33 @@ public class ExcelImportService {
     }
 
     private Object value(Cell cell, FormulaEvaluator evaluator) {
-        if (cell == null) return null;
+        if (cell == null) {
+            return null;
+        }
+
         CellType type = cell.getCellType();
-        if (type == CellType.FORMULA) type = cell.getCachedFormulaResultType();
-        if (type == CellType.NUMERIC) return cell.getNumericCellValue();
-        if (type == CellType.STRING) return clean(cell.getStringCellValue());
-        if (type == CellType.BOOLEAN) return cell.getBooleanCellValue();
-        return null;
+
+        if (type == CellType.FORMULA) {
+            CellValue evaluated = evaluator.evaluate(cell);
+
+            if (evaluated == null) {
+                return null;
+            }
+
+            return switch (evaluated.getCellType()) {
+                case NUMERIC -> evaluated.getNumberValue();
+                case STRING -> clean(evaluated.getStringValue());
+                case BOOLEAN -> evaluated.getBooleanValue();
+                default -> null;
+            };
+        }
+
+        return switch (type) {
+            case NUMERIC -> cell.getNumericCellValue();
+            case STRING -> clean(cell.getStringCellValue());
+            case BOOLEAN -> cell.getBooleanCellValue();
+            default -> null;
+        };
     }
 
     private String cellText(Cell cell, FormulaEvaluator evaluator) {
