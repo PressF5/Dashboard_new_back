@@ -6,6 +6,7 @@ import org.pressf5.dashboard.api.UnauthorizedException;
 import org.pressf5.dashboard.config.JwtProperties;
 import org.pressf5.dashboard.dto.AdminLoginRequest;
 import org.pressf5.dashboard.dto.AdminLoginResponse;
+import org.pressf5.dashboard.dto.UserIdentity;
 import org.pressf5.dashboard.entity.AdminUser;
 import org.pressf5.dashboard.repository.AdminUserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -57,6 +58,33 @@ public class AdminAuthService {
         );
 
         return new LoginResult(response, refreshToken);
+    }
+
+    /**
+     * Обновление access и refresh токенов.
+     */
+    public LoginResult refresh(String rawRefreshToken) {
+        RefreshTokenService.RotationResult rotation = refreshTokenService.rotate(rawRefreshToken);
+
+        if (rotation.status() != RefreshTokenService.RotationStatus.SUCCESS) {
+            throw new UnauthorizedException("Refresh-токен недействителен или отозван");
+        }
+
+        UserIdentity user = rotation.user();
+        String accessToken = jwtService.generateAccessToken(user);
+
+        AdminLoginResponse response = new AdminLoginResponse(
+                accessToken,
+                "Bearer",
+                jwtProperties.getAccessTokenTtl().toSeconds(),
+                user.id(),
+                user.username(),
+                user.email(),
+                user.roleCode(),
+                user.roleName()
+        );
+
+        return new LoginResult(response, rotation.refreshToken());
     }
 
     public record LoginResult(
