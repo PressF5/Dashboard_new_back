@@ -1,11 +1,15 @@
 package org.pressf5.dashboard.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.pressf5.dashboard.dto.AdminRegistrationRequest;
+import org.pressf5.dashboard.dto.AdminRegistrationResponse;
 import org.pressf5.dashboard.dto.AvailableRoleResponse;
 import org.pressf5.dashboard.service.AdminRoleService;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.pressf5.dashboard.service.AdminUserService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -15,9 +19,22 @@ import java.util.List;
 public class AuthController {
 
     private final AdminRoleService adminRoleService;
+    private final AdminUserService adminUserService;
 
+    /**
+     * Получение списка свободных ролей для регистрации.
+     */
     @GetMapping("/available-roles")
     public List<AvailableRoleResponse> getAvailableRoles() {
         return adminRoleService.getAvailableRoles();
+    }
+
+    /**
+     * Регистрация нового администратора.
+     */
+    @PostMapping("/register")
+    public ResponseEntity<AdminRegistrationResponse> register(@Valid @RequestBody AdminRegistrationRequest request) {
+        AdminRegistrationResponse response = adminUserService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

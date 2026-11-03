@@ -18,6 +18,11 @@ spring:
       max-request-size: 20MB
 app:
   time-zone: ${APP_TIME_ZONE:Europe/Moscow}
+  jwt:
+    issuer: dashboard-api
+    access-token-ttl: 15m
+    refresh-token-ttl: 30d
+    secret: ${JWT_SECRET}
   admin:
     username: ${ADMIN_USERNAME:admin}
     password: ${ADMIN_PASSWORD:change-me}
