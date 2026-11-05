@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,8 +16,6 @@ import java.util.Map;
 @Service
 @AllArgsConstructor
 public class ImportBatchService {
-
-    private static final ZoneId ZONE = ZoneId.of("Europe/Moscow");
 
     private final ImportBatchRepository importBatchRepository;
 
@@ -42,9 +39,9 @@ public class ImportBatchService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordFailure(String filename, String message) {
+    public void recordFailure(LocalDate snapshotDate, String filename, String message) {
         ImportBatch batch = new ImportBatch();
-        batch.setSnapshotDate(LocalDate.now(ZONE));
+        batch.setSnapshotDate(snapshotDate);
         batch.setOriginalFilename(filename);
         batch.setStatus(ImportStatus.FAILED);
         batch.setMessage(message);

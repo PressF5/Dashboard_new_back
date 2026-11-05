@@ -58,7 +58,7 @@ public class ApiController {
                 message = message.substring(0, 1800);
             }
 
-            importBatchService.recordFailure(filename, message);
+            importBatchService.recordFailure(snapshotDate, filename, message);
             throw ex;
         }
     }
@@ -88,7 +88,7 @@ public class ApiController {
                 message = message.substring(0, 1800);
             }
 
-            importBatchService.recordFailure(filename, "Публикации: " + message);
+            importBatchService.recordFailure(snapshotDate, filename, "Публикации: " + message);
             throw ex;
         }
     }
