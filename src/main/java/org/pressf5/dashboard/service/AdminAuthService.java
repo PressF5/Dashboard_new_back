@@ -61,6 +61,17 @@ public class AdminAuthService {
     }
 
     /**
+     * Выход администратора из системы.
+     */
+    public void logout(String rawRefreshToken) {
+        if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+            return;
+        }
+
+        refreshTokenService.revoke(rawRefreshToken);
+    }
+
+    /**
      * Обновление access и refresh токенов.
      */
     public LoginResult refresh(String rawRefreshToken) {
@@ -87,8 +98,5 @@ public class AdminAuthService {
         return new LoginResult(response, rotation.refreshToken());
     }
 
-    public record LoginResult(
-            AdminLoginResponse response,
-            RefreshTokenService.CreatedRefreshToken refreshToken
-    ) {}
+    public record LoginResult(AdminLoginResponse response, RefreshTokenService.CreatedRefreshToken refreshToken) {}
 }
