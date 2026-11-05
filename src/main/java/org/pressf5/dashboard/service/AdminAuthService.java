@@ -1,4 +1,3 @@
-
 package org.pressf5.dashboard.service;
 
 import lombok.RequiredArgsConstructor;
@@ -52,7 +51,6 @@ public class AdminAuthService {
                 jwtProperties.getAccessTokenTtl().toSeconds(),
                 adminUser.getId(),
                 adminUser.getUsername(),
-                adminUser.getEmail(),
                 adminUser.getRole().getCode(),
                 adminUser.getRole().getName()
         );
@@ -90,7 +88,6 @@ public class AdminAuthService {
                 jwtProperties.getAccessTokenTtl().toSeconds(),
                 user.id(),
                 user.username(),
-                user.email(),
                 user.roleCode(),
                 user.roleName()
         );

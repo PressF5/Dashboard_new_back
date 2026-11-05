@@ -24,7 +24,6 @@ public class JwtService {
         return generateAccessToken(new UserIdentity(
                 adminUser.getId(),
                 adminUser.getUsername(),
-                adminUser.getEmail(),
                 adminUser.getRole().getCode(),
                 adminUser.getRole().getName()
         ));

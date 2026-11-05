@@ -6,7 +6,6 @@ public record AdminLoginResponse(
         long expiresIn,
         Long id,
         String username,
-        String email,
         String roleCode,
         String roleName
 ) {

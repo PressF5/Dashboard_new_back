@@ -82,7 +82,6 @@ public class RefreshTokenService {
         UserIdentity identity = new UserIdentity(
                 adminUser.getId(),
                 adminUser.getUsername(),
-                adminUser.getEmail(),
                 adminUser.getRole().getCode(),
                 adminUser.getRole().getName()
         );
