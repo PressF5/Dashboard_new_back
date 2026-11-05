@@ -1,4 +1,3 @@
-
 package org.pressf5.dashboard.api;
 
 import lombok.AllArgsConstructor;
@@ -48,9 +47,9 @@ public class ApiController {
     }
 
     @PostMapping(value = "/admin/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> upload(@RequestPart("file") MultipartFile file) {
+    public ResponseEntity<?> upload(@RequestPart("file") MultipartFile file, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate snapshotDate) {
         try {
-            return ResponseEntity.ok(excelImportService.importWorkbook(file));
+            return ResponseEntity.ok(excelImportService.importWorkbook(file, snapshotDate));
         } catch (RuntimeException ex) {
             String filename = file == null ? null : file.getOriginalFilename();
             String message = ex.getMessage() == null ? "Неизвестная ошибка импорта" : ex.getMessage();
@@ -78,9 +77,9 @@ public class ApiController {
     }
 
     @PostMapping(value = "/admin/publications/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> uploadPublications(@RequestPart("file") MultipartFile file) {
+    public ResponseEntity<?> uploadPublications(@RequestPart("file") MultipartFile file, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate snapshotDate) {
         try {
-            return ResponseEntity.ok(publicationImportService.importWorkbook(file));
+            return ResponseEntity.ok(publicationImportService.importWorkbook(file, snapshotDate));
         } catch (RuntimeException ex) {
             String filename = file == null ? null : file.getOriginalFilename();
             String message = ex.getMessage() == null ? "Неизвестная ошибка импорта" : ex.getMessage();

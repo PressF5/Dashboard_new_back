@@ -20,27 +20,28 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.*;
 
 @Service
 @AllArgsConstructor
 public class PublicationImportService {
-    private static final ZoneId ZONE = ZoneId.of("Europe/Moscow");
-
     private final ImportBatchRepository importBatchRepository;
     private final PublicationSnapshotRepository publicationSnapshotRepository;
     private final PublicationMsuStatisticsRepository publicationMsuStatisticsRepository;
     private final MsuRepository msuRepository;
 
     @Transactional
-    public Map<String, Object> importWorkbook(MultipartFile upload) {
+    public Map<String, Object> importWorkbook(MultipartFile upload, LocalDate snapshotDate) {
+        if (snapshotDate == null) {
+            throw new IllegalArgumentException("Выберите дату статистики.");
+        }
+
         if (upload == null || upload.isEmpty()) throw new IllegalArgumentException("Выберите Excel-файл.");
         String filename = Optional.ofNullable(upload.getOriginalFilename()).orElse("publications.xlsx");
         String lower = filename.toLowerCase(Locale.ROOT);
         if (!lower.endsWith(".xlsx") && !lower.endsWith(".xls"))
             throw new IllegalArgumentException("Поддерживаются файлы .xlsx и .xls.");
-        LocalDate date = LocalDate.now(ZONE);
+
         Path temp = null;
         try {
             temp = Files.createTempFile("publication-statistics-", lower.endsWith(".xls") ? ".xls" : ".xlsx");
@@ -52,15 +53,15 @@ public class PublicationImportService {
                     throw new IllegalArgumentException("Структура файла не соответствует шаблону статистики публикаций.");
 
                 ImportBatch batch = new ImportBatch();
-                batch.setSnapshotDate(date);
+                batch.setSnapshotDate(snapshotDate);
                 batch.setOriginalFilename(filename);
                 batch.setStatus(ImportStatus.PROCESSING);
                 batch.setMessage("Импорт публикаций");
                 batch = importBatchRepository.save(batch);
                 Long batchId = batch.getId();
 
-                PublicationSnapshot snapshot = publicationSnapshotRepository.findBySnapshotDate(date).orElseGet(PublicationSnapshot::new);
-                snapshot.setSnapshotDate(date);
+                PublicationSnapshot snapshot = publicationSnapshotRepository.findBySnapshotDate(snapshotDate).orElseGet(PublicationSnapshot::new);
+                snapshot.setSnapshotDate(snapshotDate);
                 snapshot.setSourceImport(batch);
                 snapshot = publicationSnapshotRepository.save(snapshot);
                 Long snapshotId = snapshot.getId();
@@ -113,7 +114,7 @@ public class PublicationImportService {
                 importBatchRepository.save(batch);
 
                 return Map.of("batchId", batchId,
-                        "snapshotDate", date.toString(),
+                        "snapshotDate", snapshotDate.toString(),
                         "status", "SUCCESS",
                         "msuCount", count,
                         "message", "Статистика публикаций импортирована.");
