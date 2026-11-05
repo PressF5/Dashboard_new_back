@@ -41,6 +41,14 @@ public class AuthController {
     private String sameSite;
 
     /**
+     * Инициализация CSRF-токена для frontend.
+     */
+    @GetMapping("/csrf")
+    public ResponseEntity<Void> csrf() {
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Авторизация администратора.
      */
     @PostMapping("/login")
