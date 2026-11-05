@@ -47,7 +47,7 @@ public class ApiController {
     }
 
     @PostMapping(value = "/admin/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> upload(@RequestPart("file") MultipartFile file, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate snapshotDate) {
+    public ResponseEntity<?> upload(@RequestPart("file") MultipartFile file, @RequestParam("snapshotDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate snapshotDate) {
         try {
             return ResponseEntity.ok(excelImportService.importWorkbook(file, snapshotDate));
         } catch (RuntimeException ex) {
@@ -77,7 +77,7 @@ public class ApiController {
     }
 
     @PostMapping(value = "/admin/publications/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> uploadPublications(@RequestPart("file") MultipartFile file, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate snapshotDate) {
+    public ResponseEntity<?> uploadPublications(@RequestPart("file") MultipartFile file, @RequestParam("snapshotDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate snapshotDate) {
         try {
             return ResponseEntity.ok(publicationImportService.importWorkbook(file, snapshotDate));
         } catch (RuntimeException ex) {
