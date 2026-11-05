@@ -70,6 +70,25 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+
+                        // Импорт основной статистики
+                        .requestMatchers(HttpMethod.POST, "/api/admin/imports")
+                        .hasRole("STATISTICS_ADMIN")
+
+                        // Импорт статистики публикаций
+                        .requestMatchers(HttpMethod.POST, "/api/admin/publications/import")
+                        .hasRole("PUBLICATIONS_ADMIN")
+
+                        // История импортов доступна всем администраторам
+                        .requestMatchers(HttpMethod.GET, "/api/admin/imports")
+                        .hasAnyRole(
+                                "STATISTICS_ADMIN",
+                                "PUBLICATIONS_ADMIN",
+                                "TILDA_ADMIN",
+                                "DISTANCE_ADMIN"
+                        )
+
+                        // Остальные административные маршруты
                         .requestMatchers("/api/admin/**")
                         .hasAnyRole(
                                 "STATISTICS_ADMIN",
@@ -77,8 +96,11 @@ public class SecurityConfig {
                                 "TILDA_ADMIN",
                                 "DISTANCE_ADMIN"
                         )
+
+                        // Публичный API Dashboard
                         .requestMatchers("/api/**").permitAll()
-                        .anyRequest().permitAll())
+                        .anyRequest().permitAll()
+                )
                 .authenticationProvider(authenticationProvider)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
